@@ -1,0 +1,10 @@
+*.data
+
+*.names
+
+__pycache__/
+
+.idea/
+
+
+
