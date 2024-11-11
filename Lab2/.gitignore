@@ -1,6 +1,3 @@
-# don't push .csv and __pycache__
 *.csv
 
-./__pycache__/
-
-
+__pycache__/
