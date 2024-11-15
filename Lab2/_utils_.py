@@ -97,27 +97,27 @@ class GaussianMixtureModel:
     def init_params(self, X):
         n_samples, dim = X.shape
 
-        # Initialisation avec KMeans
+        # Init with KMeans
         kmeans = KMeans(n_clusters=self.n_clusters, n_init=10).fit(X)
         labels = kmeans.labels_
 
-        # Initialisation des gammas
+        # Init gammas
         gammas = np.zeros((n_samples, self.n_clusters))
         gammas[np.arange(n_samples), labels] = 1
 
         Nk = gammas.sum(axis=0)
 
-        # Initialisation des moyennes
+        # Init mus
         self.mus = (gammas.T @ X) / Nk[:, None]
 
-        # Initialisation des covariances
+        # Init sigmas
         self.sigmas = np.zeros((self.n_clusters, dim, dim))
         for k in range(self.n_clusters):
             difference = X - self.mus[k]
             weighted_diff = gammas[:, k, None] * difference
             self.sigmas[k] = (weighted_diff.T @ difference) / Nk[k]
 
-        # Initialisation des poids (alphas)
+        # Init alphas
         self.alphas = Nk / n_samples
 
     def e_step(self, X):
@@ -128,11 +128,10 @@ class GaussianMixtureModel:
         gammas = np.zeros((n_samples, self.n_clusters))
 
         for k in range(self.n_clusters):
-            # Calcul de la densité de probabilité pour chaque cluster
             pdf_k = multivariate_normal.pdf(X, mean=self.mus[k], cov=self.sigmas[k])        
             gammas[:, k] = pdf_k * self.alphas[k]
 
-        # Normalisation des gammas
+        # Normalization
         gamma_tot = gammas.sum(axis=1, keepdims=True)
         gammas /= gamma_tot
         return gammas
@@ -140,20 +139,19 @@ class GaussianMixtureModel:
     def m_step(self, X, gammas):
         n_samples, dim = X.shape
 
-        # Calcul de Nk
         Nk = gammas.sum(axis=0)
 
-        # Mise à jour des moyennes
+        # Update mus
         self.mus = (gammas.T @ X) / Nk[:, None]
 
-        # Mise à jour des covariances
+        # Update sigmas
         self.sigmas = np.zeros((self.n_clusters, dim, dim))
         for k in range(self.n_clusters):
             difference = X - self.mus[k]
             weighted_diff = gammas[:, k, None] * difference
             self.sigmas[k] = (weighted_diff.T @ difference) / Nk[k]
 
-        # Mise à jour des poids
+        # Update alphas
         self.alphas = Nk / n_samples
 
     def fit(self, X):
@@ -170,7 +168,7 @@ class GaussianMixtureModel:
             # M-step
             self.m_step(X, gamma)
 
-            # Calcul de la log-vraisemblance
+            # log-likelihood
             likelihood = np.sum(
                 np.log(
                     np.sum(
@@ -180,7 +178,7 @@ class GaussianMixtureModel:
             )
             self.log_likelihoods.append(likelihood)
 
-            # Vérification de la convergence
+            # Convergence
             if iter > 0 and abs(likelihood - self.log_likelihoods[-2]) < self.tol:
                 print(f"Convergence atteinte à l'itération {iter}")
                 break
@@ -217,21 +215,19 @@ def plot_results(n_clusters, X, z, mu, sigma, title: str):
     fig, ax = plt.subplots(figsize=(7, 4))
     for i in range(n_clusters):
         ax.set_title(f'{title}')
-        # Scatter plot for each cluster
+
         idx = [clust for clust, k in enumerate(z) if k == i]
         cluster_data = X[idx]
         covariances = sigma[i]
         means = mu[i]
         ax.scatter(cluster_data[:, 0], cluster_data[:, 1], s=10, alpha=0.5, label=f'Data from cluster {i + 1}')
 
-        # Plot the Gaussian Ellipse
         eigenvalues, eigenvectors = np.linalg.eigh(covariances)
         angle = np.degrees(np.arctan2(*eigenvectors[:, 0][::-1]))
         width, height = 2 * np.sqrt(eigenvalues)
         ellipse = Ellipse(xy=means, width=width, height=height, angle=angle, edgecolor='black', facecolor='none')
         ax.add_patch(ellipse)
 
-        # Plot cluster center
         ax.scatter(means[0], means[1], marker='*', s=100, color='black')
         ax.grid(True)
     plt.legend()
@@ -280,7 +276,7 @@ class PopulationMonteCarlo:
         self.tol = tol
         self.dim = dim
         self.b, self.sigma2 = b, sigma2
-        self.reg = 1e-6  # Regularization for covariance matrices
+        self.reg = 1e-6
 
     def init_params(self):
         self.mus = np.random.randn(self.n_clusters, self.dim)
@@ -307,7 +303,7 @@ class PopulationMonteCarlo:
         return target_pdf / current_q
 
     def e_step(self, X, weights):
-        # Compute responsibilities (gammas) based on the updated weights
+        # Compute gammas
         gammas = np.zeros((X.shape[0], self.n_clusters))
         for k in range(self.n_clusters):
             pdf_k = multivariate_normal.pdf(X, mean=self.mus[k], cov=self.sigmas[k])
@@ -319,13 +315,13 @@ class PopulationMonteCarlo:
         n_samples, dim = X.shape
         Nk = gammas.sum(axis=0)
 
-        # Update alphas (mixture weights)
+        # Update alphas
         self.alphas = Nk / n_samples
 
-        # Update means (mus)
+        # Update mus
         self.mus = (gammas.T @ X) / Nk[:, None]
 
-        # Update covariances (sigmas)
+        # Update sigmas
         self.sigmas = np.zeros((self.n_clusters, dim, dim))
         for k in range(self.n_clusters):
             difference = X - self.mus[k]
@@ -351,11 +347,11 @@ class PopulationMonteCarlo:
             # M-step
             self.m_step(X, gammas)
 
-            # Compute log-likelihood for convergence check
+            # log-likelihood
             likelihood = np.sum(np.log(current_q))
             self.log_likelihoods.append(likelihood)
 
-            # Check for convergence
+            # convergence
             if iter > 0 and abs(likelihood - self.log_likelihoods[-2]) < self.tol:
                 print(f"Converged at iteration {iter}")
                 break
